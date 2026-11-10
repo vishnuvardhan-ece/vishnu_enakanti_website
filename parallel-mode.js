@@ -23,8 +23,8 @@ async function pLoadModels(){
   if(!window.cocoSsd)throw new Error('TensorFlow.js COCO-SSD did not load. Check internet and reload.');
   if(!roadModel)roadModel=await window.cocoSsd.load({base:'lite_mobilenet_v2'});
   if(!faceModel){
-    const mp=await import('./node_modules/@mediapipe/tasks-vision/vision_bundle.mjs');
-    const fileset=await mp.FilesetResolver.forVisionTasks('./node_modules/@mediapipe/tasks-vision/wasm');
+    const mp=await import('./vendor/mediapipe/vision_bundle.mjs');
+    const fileset=await mp.FilesetResolver.forVisionTasks('./vendor/mediapipe/wasm');
     faceModel=await mp.FaceLandmarker.createFromOptions(fileset,{
       baseOptions:{modelAssetPath:'./models/face_landmarker.task',delegate:'CPU'},
       runningMode:'VIDEO',numFaces:1,outputFaceBlendshapes:true
