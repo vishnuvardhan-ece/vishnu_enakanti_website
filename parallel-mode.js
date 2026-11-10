@@ -31,23 +31,58 @@ async function pLoadModels(){
     });
   }
 }
+function cameraErrorText(error, role){
+  if(error?.name==='NotFoundError'||error?.name==='DevicesNotFoundError'){
+    return role+' camera was not found. Check that the camera exists, is enabled, and is not disabled by browser/device settings.';
+  }
+  if(error?.name==='NotReadableError'||error?.name==='TrackStartError'){
+    return role+' camera is already in use or the device cannot open it. Close other camera apps/tabs and retry.';
+  }
+  if(error?.name==='NotAllowedError'||error?.name==='PermissionDeniedError'){
+    return 'Camera permission was denied. Allow camera access for this website in browser settings, then reload.';
+  }
+  return role+' camera error: '+(error?.message||String(error));
+}
+async function openPreferredCamera(facingMode, width, height, role){
+  const preferred={audio:false,video:{facingMode:{ideal:facingMode},width:{ideal:width},height:{ideal:height}}};
+  try{return await navigator.mediaDevices.getUserMedia(preferred);}
+  catch(error){
+    if(!['NotFoundError','DevicesNotFoundError','OverconstrainedError','ConstraintNotSatisfiedError'].includes(error?.name)) throw new Error(cameraErrorText(error,role));
+    // Some browsers do not implement facingMode consistently. Retry with any available camera.
+    try{return await navigator.mediaDevices.getUserMedia({audio:false,video:{width:{ideal:width},height:{ideal:height}}});}
+    catch(fallbackError){throw new Error(cameraErrorText(fallbackError,role));}
+  }
+}
+async function openSecondDistinctCamera(primaryStream){
+  const primaryId=primaryStream?.getVideoTracks?.()[0]?.getSettings?.().deviceId;
+  const devices=await navigator.mediaDevices.enumerateDevices();
+  const cameras=devices.filter(device=>device.kind==='videoinput'&&device.deviceId&&device.deviceId!==primaryId);
+  if(cameras.length){
+    // Explicitly select a different physical camera instead of asking for a generic
+    // front camera, which can resolve to the already-open rear camera on some browsers.
+    try{
+      return await navigator.mediaDevices.getUserMedia({audio:false,video:{deviceId:{exact:cameras[0].deviceId},width:{ideal:640},height:{ideal:480}}});
+    }catch(error){
+      throw new Error('A second camera was detected ('+(cameras[0].label||'camera')+'), but the browser could not open it simultaneously. '+cameraErrorText(error,'Front'));
+    }
+  }
+  throw new Error('This device/browser did not expose a second camera. Parallel mode needs two cameras at the same time. Use Road detection and Driver monitoring separately, or try a device/browser that supports simultaneous front and rear cameras.');
+}
 async function startParallel(){
   if(parallelOn)return;
   p$('startParallelBtn').disabled=true;
-  pStatus('parallelStatus','Loading models and requesting both cameras…');
+  pStatus('parallelStatus','Loading models and checking available cameras…');
   try{
-    if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera API unavailable. Open on localhost or HTTPS in a supported browser.');
+    if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera API unavailable. Open this site using HTTPS in a supported browser.');
     await pLoadModels();
-    // Acquire separately so the UI can report which camera failed. Some phones/browsers
-    // cannot operate front and rear cameras concurrently; failure is handled below.
-    rearStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:960},height:{ideal:540}}});
+    rearStream=await openPreferredCamera('environment',960,540,'Rear');
     rearVideo.srcObject=rearStream; await rearVideo.play();
     try{
-      frontStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'user'},width:{ideal:640},height:{ideal:480}}});
+      frontStream=await openSecondDistinctCamera(rearStream);
       frontVideo.srcObject=frontStream; await frontVideo.play();
-    }catch(e){
-      rearStream.getTracks().forEach(t=>t.stop()); rearStream=null; rearVideo.srcObject=null;
-      throw new Error('Rear camera opened, but this phone/browser could not open the front camera at the same time. Stop other camera modes and retry; simultaneous cameras may not be supported. '+e.message);
+    }catch(error){
+      rearStream?.getTracks().forEach(track=>track.stop()); rearStream=null; rearVideo.srcObject=null;
+      throw error;
     }
     parallelOn=true;
     for(const id of ['roadMode','driverMode','startBtn']) if(p$(id)) p$(id).disabled=true;
@@ -57,6 +92,9 @@ async function startParallel(){
     pStatus('parallelDriverStatus','Front camera active; tracking face/eyes…');
     roadLoop(); faceLoop();
   }catch(e){
+    // Release any partially acquired stream so the camera is not left locked.
+    for(const stream of [rearStream,frontStream]) stream?.getTracks().forEach(track=>track.stop());
+    rearStream=frontStream=null; rearVideo.srcObject=null; frontVideo.srcObject=null;
     pStatus('parallelStatus','Could not start all systems: '+e.message);
     p$('startParallelBtn').disabled=false;
     console.error(e);
