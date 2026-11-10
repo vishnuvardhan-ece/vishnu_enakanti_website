@@ -81,7 +81,7 @@ async function loadFaceLandmarker() {
   // Load MediaPipe from this project folder, not from a browser CDN.
   // Run setup.ps1 once to install the package and download the face model.
   try {
-    const mp = await import("./node_modules/@mediapipe/tasks-vision/vision_bundle.mjs");
+    const mp = await import("./vendor/mediapipe/vision_bundle.mjs");
     FaceLandmarker = mp.FaceLandmarker;
     FilesetResolver = mp.FilesetResolver;
     if (!FaceLandmarker || !FilesetResolver) {
@@ -92,7 +92,7 @@ async function loadFaceLandmarker() {
   }
   $("cameraStatus").textContent = "Loading face-landmark model…";
   const vision = await FilesetResolver.forVisionTasks(
-    "./node_modules/@mediapipe/tasks-vision/wasm"
+    "./vendor/mediapipe/wasm"
   );
   faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
     baseOptions: {
