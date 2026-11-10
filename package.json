@@ -1,8 +1,17 @@
 {
   "name": "ai-driver-safety-phone-app",
   "private": true,
-  "version": "1.0.0",
-  "description": "Local MediaPipe dependency for AI Driver Safety prototype",
+  "version": "1.1.0",
+  "type": "module",
+  "description": "Phone-based driver safety prototype with locally served MediaPipe assets",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "npm run build && npx --yes http-server dist -p 8000",
+    "test": "node --check app.js && node --check ar-navigation.js && node --check parallel-mode.js"
+  },
   "dependencies": {
     "@mediapipe/tasks-vision": "0.10.21"
   }
