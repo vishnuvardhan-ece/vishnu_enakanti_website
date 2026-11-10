@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#101827">
+  <title>AI Driver Safety — Phone Prototype</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <p class="eyebrow">PHONE-ONLY PROTOTYPE</p>
+      <h1>AI Driver Safety</h1>
+      <p class="muted">Road awareness · Driver fatigue indicators · GPS status</p>
+    </header>
+
+    <section class="notice">
+      <strong>Prototype only.</strong> This is not a certified safety system. Test while parked or using recorded footage. Do not interact with the phone while driving.
+    </section>
+
+    <section class="mode-row" aria-label="Camera mode">
+      <button id="roadMode" class="mode active">Road detection · Rear camera</button>
+      <button id="driverMode" class="mode">Driver monitoring · Front camera</button>
+    </section>
+
+
+
+    <section class="panel" id="parallelPanel">
+      <div class="section-head">
+        <h2>Parallel real-time mode</h2>
+        <span class="small muted">Experimental</span>
+      </div>
+      <p class="small muted">Runs rear-camera road detection and front-camera driver monitoring together. AR can reuse the rear camera stream when this mode is active. Device/browser support for simultaneous front/rear cameras varies.</p>
+      <div class="controls">
+        <button id="startParallelBtn">Start all systems</button>
+        <button id="stopParallelBtn" class="secondary" disabled>Stop all systems</button>
+      </div>
+      <p id="parallelStatus" class="muted" role="status">Parallel mode is stopped.</p>
+      <div class="parallel-grid">
+        <div>
+          <strong>Road detection · rear camera</strong>
+          <div class="parallel-video-wrap">
+            <video id="parallelRearVideo" autoplay muted playsinline></video>
+            <canvas id="parallelRoadCanvas"></canvas>
+          </div>
+          <p id="parallelRoadStatus" class="small muted">Waiting for rear camera.</p>
+        </div>
+        <div>
+          <strong>Driver monitoring · front camera</strong>
+          <div class="parallel-video-wrap">
+            <video id="parallelFrontVideo" autoplay muted playsinline></video>
+            <canvas id="parallelFaceCanvas"></canvas>
+          </div>
+          <p id="parallelDriverStatus" class="small muted">Waiting for front camera.</p>
+        </div>
+      </div>
+      <p class="small muted">Prototype only: test while parked. COCO-SSD does not estimate distance, and face landmarks are only a heuristic for fatigue.</p>
+    </section>
+
+    <section class="viewer panel">
+      <div class="video-wrap">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="overlay"></canvas>
+        <div id="emptyState" class="empty-state">Choose a mode, then tap Start camera.</div>
+      </div>
+      <div class="controls">
+        <button id="startBtn">Start camera</button>
+        <button id="stopBtn" class="secondary" disabled>Stop camera</button>
+      </div>
+      <p id="cameraStatus" class="muted" role="status">Camera is stopped.</p>
+    </section>
+
+    <section class="metrics">
+      <article class="metric"><span>Current mode</span><strong id="modeValue">Road detection</strong></article>
+      <article class="metric"><span>Objects detected</span><strong id="objectCount">—</strong></article>
+      <article class="metric"><span>Driver state</span><strong id="driverState">Not monitored</strong></article>
+      <article class="metric"><span>GPS speed</span><strong id="gpsSpeed">Unavailable</strong></article>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <h2>Phone permissions and alerts</h2>
+        <button id="gpsBtn" class="secondary">Enable GPS</button>
+      </div>
+      <p id="gpsStatus" class="muted">GPS not enabled. Speed may be unavailable.</p>
+      <label class="toggle"><input type="checkbox" id="voiceToggle" checked> Voice alerts</label>
+      <label class="toggle"><input type="checkbox" id="vibrateToggle" checked> Vibration alerts (if supported)</label>
+      <button id="testAlertBtn" class="secondary">Test sound / voice / vibration</button>
+      <p class="small muted">Family messages are not sent by this version. Add a consent-based notification backend later.</p>
+    </section>
+
+
+    <section class="panel ar-panel" id="arNavigation">
+      <div class="section-head"><h2>AR route guidance</h2><span class="small muted">Experimental</span></div>
+      <p class="muted small">Enter a destination to get a driving route, spoken turn guidance, and a camera arrow. Use only when parked; mount the phone securely before any real-world evaluation.</p>
+      <label for="destinationInput" class="small">Destination address or place</label>
+      <input id="destinationInput" type="text" placeholder="e.g. Chennai Central Railway Station" autocomplete="street-address">
+      <button id="routeBtn" class="secondary">Find route</button>
+      <p id="routeStatus" class="muted" role="status">Route not loaded. GPS permission is required.</p>
+      <div class="ar-video-wrap">
+        <video id="arVideo" autoplay muted playsinline></video>
+        <div id="arOverlay" class="ar-overlay" aria-live="polite">
+          <div id="arArrow" class="ar-arrow">↑</div>
+          <strong id="arManeuver">Route arrow will appear here</strong>
+          <span id="arDistance">Waiting for route</span>
+        </div>
+      </div>
+      <div class="controls"><button id="startArBtn">Start AR camera</button><button id="stopArBtn" class="secondary" disabled>Stop AR</button></div>
+      <button id="repeatInstructionBtn" class="secondary">Repeat spoken direction</button>
+      <p class="small muted">Uses OpenStreetMap geocoding and OSRM routing where available. When Parallel real-time mode is active, AR shares its rear-camera stream. GPS/compass accuracy varies by device; this is not certified navigation and may not match live traffic or road closures.</p>
+    </section>
+
+    <section class="panel">
+      <div class="section-head"><h2>Event log</h2><button id="clearLog" class="secondary">Clear</button></div>
+      <ul id="eventLog" class="event-log"><li class="muted">No events yet.</li></ul>
+    </section>
+    <footer>Local-first demo · Camera frames are processed in this browser and are not uploaded by this starter.</footer>
+  </main>
+  <script type="module" src="app.js"></script>
+  <script type="module" src="ar-navigation.js"></script>
+  <script type="module" src="parallel-mode.js"></script>
+</body>
+</html>

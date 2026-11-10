@@ -1,0 +1,9 @@
+{
+  "name": "ai-driver-safety-phone-app",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local MediaPipe dependency for AI Driver Safety prototype",
+  "dependencies": {
+    "@mediapipe/tasks-vision": "0.10.21"
+  }
+}

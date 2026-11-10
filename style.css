@@ -1,0 +1,30 @@
+:root{color-scheme:dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#101827;color:#eef3fb}
+*{box-sizing:border-box}body{margin:0}button,input{font:inherit}.shell{max-width:900px;margin:auto;padding:20px 14px 40px}
+header{margin:4px 0 20px}.eyebrow{letter-spacing:.15em;font-size:.72rem;color:#7dd3fc;font-weight:800}h1{font-size:clamp(2rem,7vw,3rem);margin:.2rem 0}.muted{color:#a9b6c9}.small{font-size:.85rem;line-height:1.5}
+.panel,.notice{border:1px solid #344257;border-radius:16px;background:#182337;padding:14px;margin-top:14px}.notice{border-color:#a16207;background:#352812;line-height:1.5}
+.mode-row{display:grid;grid-template-columns:1fr;gap:8px;margin-top:14px}.mode{background:#26364e;color:#eaf3ff;border:1px solid #52627b}.mode.active{background:#075985;border-color:#38bdf8}
+button{border:0;border-radius:11px;padding:12px 14px;font-weight:750;background:#7dd3fc;color:#0b1220;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.secondary{background:#314158;color:#eef3fb}
+.video-wrap{position:relative;background:#080d16;border-radius:12px;overflow:hidden;min-height:230px;aspect-ratio:4/3}
+video{display:block;width:100%;height:100%;object-fit:cover;position:absolute;inset:0}canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.empty-state{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:#a9b6c9}
+.controls{display:flex;gap:8px;margin-top:12px}.controls button{flex:1}.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+.metric{border:1px solid #344257;border-radius:14px;padding:13px;background:#182337;min-width:0}.metric span{display:block;color:#a9b6c9;font-size:.8rem;margin-bottom:9px}.metric strong{overflow-wrap:anywhere}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:10px}h2{font-size:1.05rem;margin:0}.toggle{display:flex;align-items:center;gap:10px;margin-top:13px}.toggle input{width:18px;height:18px}
+.event-log{padding-left:20px;max-height:220px;overflow:auto}.event-log li{margin:8px 0;line-height:1.4}footer{font-size:.8rem;color:#8fa0b7;text-align:center;margin-top:20px;line-height:1.5}
+@media(min-width:650px){.shell{padding:28px 22px 48px}.mode-row{grid-template-columns:1fr 1fr}.metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.panel,.notice{padding:18px}.video-wrap{aspect-ratio:16/9}}
+
+/* AR route guidance */
+.ar-panel input{width:100%;margin:8px 0 10px;padding:12px;border:1px solid #52627b;border-radius:10px;background:#0f1725;color:#eef3fb}
+.ar-video-wrap{position:relative;aspect-ratio:3/4;max-height:58vh;min-height:240px;overflow:hidden;border-radius:14px;background:#080d16;margin-top:12px}
+#arVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:none}
+.ar-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:8px;padding:18px 12px;color:white;text-align:center;background:linear-gradient(#0008,transparent 35%,transparent 70%,#0008);text-shadow:0 2px 5px #000}
+.ar-arrow{font-size:clamp(4rem,20vw,8rem);line-height:1;color:#7dd3fc;filter:drop-shadow(0 3px 8px #000);transform:rotate(0deg);margin-top:18px}
+#arManeuver{background:#0b1220cc;border-radius:12px;padding:8px 12px;max-width:100%}#arDistance{background:#0b1220cc;border-radius:999px;padding:6px 12px}
+#startArBtn,#routeBtn,#repeatInstructionBtn{margin-top:8px}
+@media(min-width:650px){.ar-video-wrap{aspect-ratio:16/9;max-height:500px}.ar-arrow{font-size:7rem}}
+
+/* Parallel camera mode */
+.parallel-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
+.parallel-video-wrap{position:relative;background:#080d16;border-radius:12px;overflow:hidden;aspect-ratio:4/3;min-height:180px;margin-top:8px}
+.parallel-video-wrap video,.parallel-video-wrap canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.parallel-video-wrap canvas{pointer-events:none}
+@media(min-width:700px){.parallel-grid{grid-template-columns:1fr 1fr}}
