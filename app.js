@@ -80,20 +80,31 @@ async function loadFaceLandmarker() {
   $("cameraStatus").textContent = "Loading face-landmark library…";
   // Load MediaPipe from this project folder, not from a browser CDN.
   // Run setup.ps1 once to install the package and download the face model.
-  try {
-    const mp = await import("./vendor/mediapipe/vision_bundle.mjs");
-    FaceLandmarker = mp.FaceLandmarker;
-    FilesetResolver = mp.FilesetResolver;
-    if (!FaceLandmarker || !FilesetResolver) {
-      throw new Error("MediaPipe exports were not found. Run .\setup.ps1 inside phone-app.");
+  const cdn = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21";
+  let vision = null;
+  const loadErrors = [];
+  for (const source of [
+    { module: "./vendor/mediapipe/vision_bundle.mjs", wasm: "./vendor/mediapipe/wasm" },
+    { module: cdn + "/vision_bundle.mjs", wasm: cdn + "/wasm" }
+  ]) {
+    try {
+      const mp = await import(source.module);
+      if (!mp.FaceLandmarker || !mp.FilesetResolver) throw new Error("MediaPipe exports are missing");
+      FaceLandmarker = mp.FaceLandmarker;
+      FilesetResolver = mp.FilesetResolver;
+      vision = await FilesetResolver.forVisionTasks(source.wasm);
+      break;
+    } catch (error) {
+      loadErrors.push(source.module + ": " + (error?.message || error));
+      FaceLandmarker = null;
+      FilesetResolver = null;
+      vision = null;
     }
-  } catch (error) {
-    throw new Error(`Could not load local MediaPipe files: ${error.message}. In the phone-app terminal, run .\setup.ps1 and retry.`);
+  }
+  if (!FaceLandmarker || !FilesetResolver || !vision) {
+    throw new Error("Could not load MediaPipe JavaScript/WASM files. " + loadErrors.join(" | "));
   }
   $("cameraStatus").textContent = "Loading face-landmark model…";
-  const vision = await FilesetResolver.forVisionTasks(
-    "./vendor/mediapipe/wasm"
-  );
   faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
     baseOptions: {
       modelAssetPath: "./models/face_landmarker.task",
