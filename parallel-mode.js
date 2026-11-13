@@ -23,8 +23,22 @@ async function pLoadModels(){
   if(!window.cocoSsd)throw new Error('TensorFlow.js COCO-SSD did not load. Check internet and reload.');
   if(!roadModel)roadModel=await window.cocoSsd.load({base:'lite_mobilenet_v2'});
   if(!faceModel){
-    const mp=await import('./vendor/mediapipe/vision_bundle.mjs');
-    const fileset=await mp.FilesetResolver.forVisionTasks('./vendor/mediapipe/wasm');
+    const cdn='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21';
+    let mp=null, fileset=null, errors=[];
+    for(const source of [
+      {module:'./vendor/mediapipe/vision_bundle.mjs',wasm:'./vendor/mediapipe/wasm'},
+      {module:cdn+'/vision_bundle.mjs',wasm:cdn+'/wasm'}
+    ]){
+      try{
+        mp=await import(source.module);
+        fileset=await mp.FilesetResolver.forVisionTasks(source.wasm);
+        break;
+      }catch(error){
+        errors.push(source.module+': '+(error?.message||error));
+        mp=null;fileset=null;
+      }
+    }
+    if(!mp||!fileset)throw new Error('MediaPipe could not load its JavaScript/WASM runtime. '+errors.join(' | '));
     faceModel=await mp.FaceLandmarker.createFromOptions(fileset,{
       baseOptions:{modelAssetPath:'./models/face_landmarker.task',delegate:'CPU'},
       runningMode:'VIDEO',numFaces:1,outputFaceBlendshapes:true
@@ -34,29 +48,58 @@ async function pLoadModels(){
 async function startParallel(){
   if(parallelOn)return;
   p$('startParallelBtn').disabled=true;
-  pStatus('parallelStatus','Loading models and requesting both cameras…');
+  pStatus('parallelStatus','Loading AI models and checking camera access…');
   try{
-    if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera API unavailable. Open on localhost or HTTPS in a supported browser.');
+    if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera API unavailable. Open the site over HTTPS and allow camera permission.');
     await pLoadModels();
-    // Acquire separately so the UI can report which camera failed. Some phones/browsers
-    // cannot operate front and rear cameras concurrently; failure is handled below.
-    rearStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:960},height:{ideal:540}}});
-    rearVideo.srcObject=rearStream; await rearVideo.play();
+
+    const base={audio:false,video:{width:{ideal:960},height:{ideal:540}}};
+    try{
+      rearStream=await navigator.mediaDevices.getUserMedia({...base,video:{...base.video,facingMode:{ideal:'environment'}}});
+    }catch(preferredError){
+      console.warn('Rear-facing camera request failed; trying any available camera.',preferredError);
+      try{rearStream=await navigator.mediaDevices.getUserMedia(base);}
+      catch(anyCameraError){
+        let devices=[];
+        try{devices=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');}catch(_){}
+        throw new Error('Browser could not open a camera. Cameras detected: '+devices.length+'. Check site camera permission, close other camera apps, and reconnect the camera. '+(anyCameraError?.message||anyCameraError));
+      }
+    }
+    rearVideo.srcObject=rearStream;
+    await rearVideo.play();
+
+    let dualCamera=true;
     try{
       frontStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'user'},width:{ideal:640},height:{ideal:480}}});
-      frontVideo.srcObject=frontStream; await frontVideo.play();
-    }catch(e){
-      rearStream.getTracks().forEach(t=>t.stop()); rearStream=null; rearVideo.srcObject=null;
-      throw new Error('Rear camera opened, but this phone/browser could not open the front camera at the same time. Stop other camera modes and retry; simultaneous cameras may not be supported. '+e.message);
+      frontVideo.srcObject=frontStream;
+      await frontVideo.play();
+    }catch(secondCameraError){
+      // Keep the available camera running instead of failing the entire start operation.
+      // Both pipelines receive the same feed; the UI explicitly warns that this is not
+      // separate rear-road/front-driver monitoring.
+      console.warn('Second camera unavailable; using a single-camera fallback.',secondCameraError);
+      frontStream=null;
+      frontVideo.srcObject=rearStream;
+      await frontVideo.play();
+      dualCamera=false;
     }
+
     parallelOn=true;
     for(const id of ['roadMode','driverMode','startBtn']) if(p$(id)) p$(id).disabled=true;
     p$('stopParallelBtn').disabled=false;
-    pStatus('parallelStatus','All systems running: rear road detection + front driver monitoring. AR may share the rear stream.');
-    pStatus('parallelRoadStatus','Rear camera active; detecting road objects…');
-    pStatus('parallelDriverStatus','Front camera active; tracking face/eyes…');
-    roadLoop(); faceLoop();
+    if(dualCamera){
+      pStatus('parallelStatus','Both cameras active: rear road detection + front driver monitoring.');
+      pStatus('parallelRoadStatus','Rear camera active; detecting road objects…');
+      pStatus('parallelDriverStatus','Front camera active; tracking face/eyes…');
+    }else{
+      pStatus('parallelStatus','Camera fallback active. Both AI pipelines are receiving one camera feed; separate road and driver views are not available on this device.');
+      pStatus('parallelRoadStatus','Single available camera feed · road-object detection active.');
+      pStatus('parallelDriverStatus','Single available camera feed · face monitoring may not detect a driver from this angle.');
+    }
+    roadLoop();faceLoop();
   }catch(e){
+    for(const activeStream of new Set([rearStream,frontStream].filter(Boolean)))activeStream.getTracks().forEach(track=>track.stop());
+    rearStream=frontStream=null;rearVideo.srcObject=null;frontVideo.srcObject=null;
     pStatus('parallelStatus','Could not start all systems: '+e.message);
     p$('startParallelBtn').disabled=false;
     console.error(e);
@@ -116,7 +159,7 @@ function faceLoop(){
 function stopParallel(){
  parallelOn=false;
  if(roadFrame)cancelAnimationFrame(roadFrame);if(faceFrame)cancelAnimationFrame(faceFrame);
- for(const s of [rearStream,frontStream])if(s)s.getTracks().forEach(t=>t.stop());
+ for(const s of new Set([rearStream,frontStream].filter(Boolean)))s.getTracks().forEach(t=>t.stop());
  rearStream=frontStream=null;rearVideo.srcObject=null;frontVideo.srcObject=null;
  roadCtx.clearRect(0,0,roadCanvas.width,roadCanvas.height);faceCtx.clearRect(0,0,faceCanvas.width,faceCanvas.height);
  for(const id of ['roadMode','driverMode','startBtn']) if(p$(id)) p$(id).disabled=false;
